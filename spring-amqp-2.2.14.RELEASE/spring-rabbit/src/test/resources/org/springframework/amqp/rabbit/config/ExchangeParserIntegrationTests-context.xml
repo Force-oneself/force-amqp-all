@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans:beans xmlns="http://www.springframework.org/schema/rabbit"
+	xmlns:beans="http://www.springframework.org/schema/beans" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xmlns:rabbit="http://www.springframework.org/schema/rabbit"
+	xsi:schemaLocation="http://www.springframework.org/schema/rabbit https://www.springframework.org/schema/rabbit/spring-rabbit.xsd
+		http://www.springframework.org/schema/beans https://www.springframework.org/schema/beans/spring-beans.xsd">
+
+	<direct-exchange name="directTest" auto-delete="true">
+		<bindings>
+			<binding queue="bucket" />
+			<binding queue="bucket2" key="" />
+			<binding queue="bucket.test" />
+		</bindings>
+	</direct-exchange>
+
+	<topic-exchange name="topicTest" auto-delete="true">
+		<bindings>
+			<binding queue="bucket" pattern="bucket.#"/>
+		</bindings>
+	</topic-exchange>
+
+	<fanout-exchange name="fanoutTest">
+		<bindings>
+			<binding queue="bucket" />
+		</bindings>
+	</fanout-exchange>
+
+	<headers-exchange name="headersTest">
+		<bindings>
+			<binding queue="bucket" key="type" value="bucket"  />
+		</bindings>
+	</headers-exchange>
+
+	<headers-exchange name="headersTestMulti">
+		<bindings>
+			<binding queue="bucket">
+				<binding-arguments>
+					<beans:entry key="foo" value="bar" />
+					<beans:entry key="baz" value="qux" />
+					<beans:entry key="x-match" value="all" />
+				</binding-arguments>
+			</binding>
+		</bindings>
+	</headers-exchange>
+
+	<queue id="bucket" />
+	<queue id="bucket2" />
+	<queue id="bucket.test" />
+
+	<admin id="admin-test" connection-factory="connectionFactory" auto-startup="true"/>
+
+	<connection-factory id="connectionFactory" host="localhost" />
+
+</beans:beans>

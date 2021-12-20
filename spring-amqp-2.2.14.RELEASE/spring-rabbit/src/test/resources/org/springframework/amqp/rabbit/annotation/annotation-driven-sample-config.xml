@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+	   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	   xmlns:rabbit="http://www.springframework.org/schema/rabbit"
+	   xsi:schemaLocation="http://www.springframework.org/schema/beans
+	   https://www.springframework.org/schema/beans/spring-beans.xsd
+	   http://www.springframework.org/schema/rabbit
+	   https://www.springframework.org/schema/rabbit/spring-rabbit.xsd">
+
+	<rabbit:annotation-driven/>
+
+	<bean class="org.springframework.amqp.rabbit.annotation.AbstractRabbitAnnotationDrivenTests$SampleBean"/>
+
+	<bean id="rabbitListenerContainerFactory"
+		  class="org.springframework.amqp.rabbit.config.RabbitListenerContainerTestFactory"/>
+	<bean id="simpleFactory" class="org.springframework.amqp.rabbit.config.RabbitListenerContainerTestFactory"/>
+
+	<rabbit:queue id="foo" ignore-declaration-exceptions="true" declared-by="myAdmin" auto-declare="false"/>
+
+	<bean id="mockFactory" class="org.mockito.Mockito" factory-method="mock">
+		<constructor-arg value="org.springframework.amqp.rabbit.connection.ConnectionFactory"/>
+	</bean>
+
+	<rabbit:admin id="myAdmin" connection-factory="mockFactory"/>
+
+	<rabbit:direct-exchange name="bar" ignore-declaration-exceptions="true" declared-by="myAdmin" auto-declare="false">
+		<rabbit:bindings>
+			<rabbit:binding queue="foo" key="baz" ignore-declaration-exceptions="true"/>
+		</rabbit:bindings>
+	</rabbit:direct-exchange>
+
+</beans>
