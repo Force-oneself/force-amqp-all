@@ -1755,6 +1755,7 @@ public class RabbitTemplate extends RabbitAccessor // NOSONAR type line count
 		if (object instanceof Message) {
 			return (Message) object;
 		}
+		// 默认SimpleMessageConverter
 		return getRequiredMessageConverter().toMessage(object, new MessageProperties());
 	}
 
@@ -2088,14 +2089,8 @@ public class RabbitTemplate extends RabbitAccessor // NOSONAR type line count
 			else {
 				connection = ConnectionFactoryUtils.createConnection(connectionFactory,
 						this.usePublisherConnection); // NOSONAR - RabbitUtils closes
-				if (connection == null) {
-					throw new IllegalStateException("Connection factory returned a null connection");
-				}
 				try {
 					channel = connection.createChannel(false);
-					if (channel == null) {
-						throw new IllegalStateException("Connection returned a null channel");
-					}
 				}
 				catch (RuntimeException e) {
 					RabbitUtils.closeConnection(connection);

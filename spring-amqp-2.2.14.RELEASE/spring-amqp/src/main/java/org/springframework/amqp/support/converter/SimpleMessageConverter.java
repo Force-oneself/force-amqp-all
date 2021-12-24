@@ -130,8 +130,10 @@ public class SimpleMessageConverter extends WhiteListDeserializingMessageConvert
 		byte[] bytes = null;
 		if (object instanceof byte[]) {
 			bytes = (byte[]) object;
+			// 字节类型
 			messageProperties.setContentType(MessageProperties.CONTENT_TYPE_BYTES);
 		}
+
 		else if (object instanceof String) {
 			try {
 				bytes = ((String) object).getBytes(this.defaultCharset);
@@ -140,17 +142,21 @@ public class SimpleMessageConverter extends WhiteListDeserializingMessageConvert
 				throw new MessageConversionException(
 						"failed to convert to Message content", e);
 			}
+			// String类型
 			messageProperties.setContentType(MessageProperties.CONTENT_TYPE_TEXT_PLAIN);
 			messageProperties.setContentEncoding(this.defaultCharset);
 		}
+
 		else if (object instanceof Serializable) {
 			try {
+				// 对象流转字节
 				bytes = SerializationUtils.serialize(object);
 			}
 			catch (IllegalArgumentException e) {
 				throw new MessageConversionException(
 						"failed to convert to serialized Message content", e);
 			}
+			// 序列化对象
 			messageProperties.setContentType(MessageProperties.CONTENT_TYPE_SERIALIZED_OBJECT);
 		}
 		if (bytes != null) {

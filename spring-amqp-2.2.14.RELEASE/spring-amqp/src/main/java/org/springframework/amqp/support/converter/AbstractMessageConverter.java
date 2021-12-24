@@ -67,6 +67,7 @@ public abstract class AbstractMessageConverter implements MessageConverter {
 		if (messageProperties == null) {
 			messageProperties = new MessageProperties();
 		}
+		// 构建消息
 		Message message = createMessage(object, messageProperties, genericType);
 		messageProperties = message.getMessageProperties();
 		if (this.createMessageIds && messageProperties.getMessageId() == null) {

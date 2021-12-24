@@ -259,6 +259,9 @@ subprojects { subproject ->
 	checkstyle {
 		configFile = file("${rootDir}/src/checkstyle/checkstyle.xml")
 		toolVersion = '8.24'
+		ignoreFailures = true
+		showViolations = true
+		maxErrors = 50
 	}
 
 	artifacts {
