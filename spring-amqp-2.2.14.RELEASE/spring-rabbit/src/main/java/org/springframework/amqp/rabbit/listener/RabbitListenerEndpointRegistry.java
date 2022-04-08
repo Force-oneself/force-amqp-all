@@ -159,7 +159,7 @@ public class RabbitListenerEndpointRegistry implements DisposableBean, SmartLife
 					containerGroup = this.applicationContext.getBean(endpoint.getGroup(), List.class);
 				}
 				else {
-					containerGroup = new ArrayList<MessageListenerContainer>();
+					containerGroup = new ArrayList<>();
 					this.applicationContext.getBeanFactory().registerSingleton(endpoint.getGroup(), containerGroup);
 				}
 				containerGroup.add(container);

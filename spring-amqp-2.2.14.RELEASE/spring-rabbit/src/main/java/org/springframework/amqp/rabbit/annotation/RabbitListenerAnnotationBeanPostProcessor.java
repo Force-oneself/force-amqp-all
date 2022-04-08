@@ -252,6 +252,7 @@ public class RabbitListenerAnnotationBeanPostProcessor
 		if (this.beanFactory instanceof ListableBeanFactory) {
 			Map<String, RabbitListenerConfigurer> instances =
 					((ListableBeanFactory) this.beanFactory).getBeansOfType(RabbitListenerConfigurer.class);
+			// Force-Spring 拓展点：RabbitListenerConfigurer.configureRabbitListeners()
 			for (RabbitListenerConfigurer configurer : instances.values()) {
 				configurer.configureRabbitListeners(this.registrar);
 			}
@@ -279,6 +280,7 @@ public class RabbitListenerAnnotationBeanPostProcessor
 		}
 
 		// Actually register all listeners
+		// Force-Spring 重点：@RabbitListener代理核心
 		this.registrar.afterPropertiesSet();
 
 		// clear the cache - prototype beans will be re-cached.
@@ -297,6 +299,7 @@ public class RabbitListenerAnnotationBeanPostProcessor
 		final TypeMetadata metadata = this.typeCache.computeIfAbsent(targetClass, this::buildMetadata);
 		for (ListenerMethod lm : metadata.listenerMethods) {
 			for (RabbitListener rabbitListener : lm.annotations) {
+				// @RabbitListener的处理
 				processAmqpListener(rabbitListener, lm.method, bean, beanName);
 			}
 		}
@@ -307,16 +310,19 @@ public class RabbitListenerAnnotationBeanPostProcessor
 	}
 
 	private TypeMetadata buildMetadata(Class<?> targetClass) {
+		// 扫描类上(包含父类)的@RabbitListener
 		Collection<RabbitListener> classLevelListeners = findListenerAnnotations(targetClass);
 		final boolean hasClassLevelListeners = classLevelListeners.size() > 0;
 		final List<ListenerMethod> methods = new ArrayList<>();
 		final List<Method> multiMethods = new ArrayList<>();
 		ReflectionUtils.doWithMethods(targetClass, method -> {
+			// 扫描方法的@RabbitListener
 			Collection<RabbitListener> listenerAnnotations = findListenerAnnotations(method);
 			if (listenerAnnotations.size() > 0) {
 				methods.add(new ListenerMethod(method,
 						listenerAnnotations.toArray(new RabbitListener[listenerAnnotations.size()])));
 			}
+			// 类上添加@RabbitListener需要根据@RabbitHandler处理消息
 			if (hasClassLevelListeners) {
 				RabbitHandler rabbitHandler = AnnotationUtils.findAnnotation(method, RabbitHandler.class);
 				if (rabbitHandler != null) {
@@ -347,8 +353,10 @@ public class RabbitListenerAnnotationBeanPostProcessor
 		Method defaultMethod = null;
 		for (Method method : multiMethods) {
 			Method checked = checkProxy(method, bean);
+			// 是否为默认消息处理方法
 			if (AnnotationUtils.findAnnotation(method, RabbitHandler.class).isDefault()) { // NOSONAR never null
 				final Method toAssert = defaultMethod;
+				// 只允许一个默认处理方法
 				Assert.state(toAssert == null, () -> "Only one @RabbitHandler can be marked 'isDefault', found: "
 						+ toAssert.toString() + " and " + method.toString());
 				defaultMethod = checked;
@@ -371,10 +379,10 @@ public class RabbitListenerAnnotationBeanPostProcessor
 
 	private Method checkProxy(Method methodArg, Object bean) {
 		Method method = methodArg;
+		// jdk代理
 		if (AopUtils.isJdkDynamicProxy(bean)) {
 			try {
-				// Found a @RabbitListener method on the target class for this JDK proxy ->
-				// is it also present on the proxy itself?
+				// 在此 JDK 代理的目标类上找到了一个 @RabbitListener 方法 -> 它是否也存在于代理本身上？
 				method = bean.getClass().getMethod(method.getName(), method.getParameterTypes());
 				Class<?>[] proxiedInterfaces = ((Advised) bean).getProxiedInterfaces();
 				for (Class<?> iface : proxiedInterfaces) {
@@ -405,12 +413,18 @@ public class RabbitListenerAnnotationBeanPostProcessor
 			Object target, String beanName) {
 
 		endpoint.setBean(bean);
+		// 消息处理方法工厂
 		endpoint.setMessageHandlerMethodFactory(this.messageHandlerMethodFactory);
+		// 唯一编码
 		endpoint.setId(getEndpointId(rabbitListener));
+		// 解析出队列名
 		endpoint.setQueueNames(resolveQueues(rabbitListener));
+		// 设置并发处理的线程数
 		endpoint.setConcurrency(resolveExpressionAsStringOrInteger(rabbitListener.concurrency(), "concurrency"));
 		endpoint.setBeanFactory(this.beanFactory);
+		// 异常处理  默认设置：false 将异常抛出到侦听器容器并执行正常的重试/DLQ 处理
 		endpoint.setReturnExceptions(resolveExpressionAsBoolean(rabbitListener.returnExceptions()));
+		// 异常处理器
 		Object errorHandler = resolveExpression(rabbitListener.errorHandler());
 		if (errorHandler instanceof RabbitListenerErrorHandler) {
 			endpoint.setErrorHandler((RabbitListenerErrorHandler) errorHandler);
@@ -425,6 +439,7 @@ public class RabbitListenerAnnotationBeanPostProcessor
 			throw new IllegalStateException("error handler mut be a bean name or RabbitListenerErrorHandler, not a "
 					+ errorHandler.getClass().toString());
 		}
+		// 组
 		String group = rabbitListener.group();
 		if (StringUtils.hasText(group)) {
 			Object resolvedGroup = resolveExpression(group);
@@ -432,12 +447,14 @@ public class RabbitListenerAnnotationBeanPostProcessor
 				endpoint.setGroup((String) resolvedGroup);
 			}
 		}
+		// 是否自动启动 默认 false
 		String autoStartup = rabbitListener.autoStartup();
 		if (StringUtils.hasText(autoStartup)) {
 			endpoint.setAutoStartup(resolveExpressionAsBoolean(autoStartup));
 		}
-
+		// 是否独占queues队列
 		endpoint.setExclusive(rabbitListener.exclusive());
+		// 设置容器优先级
 		String priority = resolveExpressionAsString(rabbitListener.priority(), "priority");
 		if (StringUtils.hasText(priority)) {
 			try {
@@ -448,11 +465,14 @@ public class RabbitListenerAnnotationBeanPostProcessor
 						rabbitListener + " (must be an integer)", ex);
 			}
 		}
-
+		// 解析任务执行器，覆盖工厂提供的执行器
 		resolveExecutor(endpoint, rabbitListener, target, beanName);
 		resolveAdmin(endpoint, rabbitListener, target);
+		// Ack应答模式
 		resolveAckMode(endpoint, rabbitListener);
+		// 设置回复处理器
 		resolvePostProcessor(endpoint, rabbitListener, target, beanName);
+		// 解析容器工厂
 		RabbitListenerContainerFactory<?> factory = resolveContainerFactory(rabbitListener, target, beanName);
 
 		this.registrar.registerEndpoint(endpoint, factory);
@@ -558,13 +578,17 @@ public class RabbitListenerAnnotationBeanPostProcessor
 			return resolveExpressionAsString(rabbitListener.id(), "id");
 		}
 		else {
+			// 默认唯一编码
 			return "org.springframework.amqp.rabbit.RabbitListenerEndpointContainer#" + this.counter.getAndIncrement();
 		}
 	}
 
 	private String[] resolveQueues(RabbitListener rabbitListener) {
+		// 注解监听的队列名
 		String[] queues = rabbitListener.queues();
+		// 绑定的交换机
 		QueueBinding[] bindings = rabbitListener.bindings();
+		// 声明的队列
 		org.springframework.amqp.rabbit.annotation.Queue[] queuesToDeclare = rabbitListener.queuesToDeclare();
 		List<String> result = new ArrayList<String>();
 		if (queues.length > 0) {
@@ -573,6 +597,7 @@ public class RabbitListenerAnnotationBeanPostProcessor
 			}
 		}
 		if (queuesToDeclare.length > 0) {
+			// queuesToDeclare 与 queues 属性互斥
 			if (queues.length > 0) {
 				throw new BeanInitializationException(
 						"@RabbitListener can have only one of 'queues', 'queuesToDeclare', or 'bindings'");
@@ -582,6 +607,7 @@ public class RabbitListenerAnnotationBeanPostProcessor
 			}
 		}
 		if (bindings.length > 0) {
+			// bindings 与 queuesToDeclare 或者 queues 属性互斥
 			if (queues.length > 0 || queuesToDeclare.length > 0) {
 				throw new BeanInitializationException(
 						"@RabbitListener can have only one of 'queues', 'queuesToDeclare', or 'bindings'");

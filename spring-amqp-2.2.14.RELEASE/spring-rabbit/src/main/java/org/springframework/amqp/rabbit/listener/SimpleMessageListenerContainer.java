@@ -568,6 +568,7 @@ public class SimpleMessageListenerContainer extends AbstractMessageListenerConta
 				processors.add(processor);
 				getTaskExecutor().execute(processor);
 				if (getApplicationEventPublisher() != null) {
+					// Force-Spring 拓展点：AsyncConsumerStartedEvent事件
 					getApplicationEventPublisher().publishEvent(new AsyncConsumerStartedEvent(this, consumer));
 				}
 			}

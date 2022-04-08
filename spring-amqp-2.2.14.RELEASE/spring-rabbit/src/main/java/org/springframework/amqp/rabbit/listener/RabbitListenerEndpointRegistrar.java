@@ -153,6 +153,7 @@ public class RabbitListenerEndpointRegistrar implements BeanFactoryAware, Initia
 		}
 		else if (this.containerFactoryBeanName != null) {
 			Assert.state(this.beanFactory != null, "BeanFactory must be set to obtain container factory by bean name");
+			// 解析IOC中的Bean
 			this.containerFactory = this.beanFactory.getBean(
 					this.containerFactoryBeanName, RabbitListenerContainerFactory.class);
 			return this.containerFactory;  // Consider changing this if live change of the factory is required
